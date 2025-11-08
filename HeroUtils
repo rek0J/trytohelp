@@ -14,26 +14,34 @@ Command |c0061FFFF-revive|r allows you to revive before the cooldown at the cost
 
         timer array deathTimer
         timerdialog array deathTimerDialog
-        integer array deathPlayerId
 
         boolean isLateGame                      = false
     endglobals
 
     function HeroRevive takes integer pId returns nothing
-        local timer t               = deathTimer[pId]
-        local unit hero             = udg_LightHeroes[pId]
+        local timer t                   = deathTimer[pId]
+        local unit hero                 = udg_LightHeroes[pId]
+        
+	    if pId <= 0 then
+            call DebugLog(LVL_WARN, "HeroRevive FAILED: pId is invalid (" + I2S(pId) + ")")
+            return
+        endif
 
+        if t != null then
+            call DestroyTimerDialog(deathTimerDialog[pId])
+            call ReleaseTimer(t)
+            
+
+            set deathTimer[pId] = null
+            set deathTimerDialog[pId] = null
+            set t = null
+        endif
+        
         call ReviveHeroLoc(hero, udg_StartPoint, true)
         
         if IsTriggerEnabled(gg_trg_DualHeroChange) == true then
             set udg_DualHeroChange[pId] = true
         endif
-
-        call DestroyTimerDialog(deathTimerDialog[pId])
-        call ReleaseTimer(t)
-        set t = null
-        set deathTimer[pId] = null
-        set deathTimerDialog[pId] = null
     endfunction
 
     function HeroCommandRevive takes nothing returns nothing
@@ -68,10 +76,14 @@ Command |c0061FFFF-revive|r allows you to revive before the cooldown at the cost
     endfunction
 
     function HeroTimerRevive takes nothing returns nothing
-        local timer t               = GetExpiredTimer()
-        local integer tId           = GetHandleId(t)
-        local integer pId           = deathPlayerId[tId]
+        local timer t                   = GetExpiredTimer()
+        local integer pId               = GetTimerData(t)
 
+        if pId <= 0 then
+            call DebugLog(LVL_WARN, "HeroRevive FAILED: Invalid pId (" + I2S(pId) + ")")
+            return 
+        endif
+        
         call HeroRevive(pId)
     endfunction
 
@@ -81,16 +93,16 @@ Command |c0061FFFF-revive|r allows you to revive before the cooldown at the cost
         local force playerForce     = CreateForce()
         local integer pId           = GetConvertedPlayerId(heroPlayer)
 
-        local timer t               = CreateTimer()
-        local integer tId           = GetHandleId(t)
-
+        local timer t               = NewTimer()
         local real wait
 
         call DebugLog(LVL_DEBUG, "HeroDead - Player " + GetPlayerName(heroPlayer) )
 
-        set deathPlayerId[tId] = pId
-        set deathTimer[pId] = t
-        call ForceAddPlayer(playerForce, heroPlayer)
+	call SetTimerData(t, pId)
+	
+	set deathTimer[pId] = t
+	call ForceAddPlayer(playerForce, heroPlayer)     
+        
 
         if IsTriggerEnabled(gg_trg_DualHeroChange) == true then
             set udg_DualHeroChange[pId] = false
